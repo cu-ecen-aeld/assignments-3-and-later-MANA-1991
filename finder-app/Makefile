@@ -1,21 +1,15 @@
-CC_native := gcc
-CC_cross := aarch64-none-linux-gnu-gcc
+CFLAGS := -g -Wall
+SRC := writer.c
+TARGET = writer
+OBJS := $(SRC:.c=.o)
+CROSS_COMPILE:=
+CC := $(CROSS_COMPILE)gcc
 
-.PHONY: all
-all: writer
+all: $(TARGET)
 
-ifeq ($(CROSS_COMPILE),aarch64-none-linux-gnu-)
-  CC := $(CC_cross)
-else
-  CC := $(CC_native)
-endif
+$(TARGET) : $(OBJS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-writer: writer.o
-	$(CC) -o $@ $^
-
-writer.o: writer.c
-	$(CC) -c -o $@ $<
-
-.PHONY: clean
 clean:
-	rm -f writer writer.o
+	-rm -f *.o $(TARGET) *.elf *.map
+
