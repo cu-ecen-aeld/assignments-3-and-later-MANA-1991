@@ -14,30 +14,28 @@ void* threadfunc(void* thread_param)
     // TODO: wait, obtain mutex, wait, release mutex as described by thread_data structure
     // hint: use a cast like the one below to obtain thread arguments from your parameter
     struct thread_data* thread_func_args = (struct thread_data *) thread_param;
-    
-    DEBUG_LOG("Sleeping for %d ms\n",thread_func_args->obtain_time_ms);
 
-    usleep(thread_func_args->obtain_time_ms*1000);
+    thread_func_args->thread_complete_success=false;
+    *(thread_func_args->thread)=pthread_self();
 
-    int rc = pthread_mutex_lock(thread_func_args->mutex);
+    usleep((thread_func_args->wait_to_obtain_ms)*1000);
+    int retLock=pthread_mutex_lock(thread_func_args->mutex);
 
-    if (rc != 0)
-    {
-        thread_func_args->thread_complete_success = false;
-	return thread_param;
+    if(retLock==0){
+            usleep((thread_func_args->wait_to_release_ms)*1000);
+            int retUnLock=pthread_mutex_unlock(thread_func_args->mutex);
+            if(retUnLock==0){
+                    thread_func_args->thread_complete_success=true;
+                    DEBUG_LOG("mutex locked and released successfully\n");
+            }
+            else{
+                    ERROR_LOG("pthread_mutex_unlock failed with return=%d\n", retUnLock);
+            }
+    }
+    else{
+        ERROR_LOG("pthread_mutex_lock failed with return=%d\n", retLock);
     }
 
-    usleep(thread_func_args->release_time_ms*1000);
-
-    rc = pthread_mutex_unlock(thread_func_args->mutex);
-    
-    if (rc != 0)
-    {
-        thread_func_args->thread_complete_success = false;
-        return thread_param;
-    }
-
-    thread_func_args->thread_complete_success = true;
     return thread_param;
 }
 
@@ -52,28 +50,30 @@ bool start_thread_obtaining_mutex(pthread_t *thread, pthread_mutex_t *mutex,int 
      *
      * See implementation details in threading.h file comment block
      */
-    
-    struct thread_data * data = (struct thread_data*)malloc(sizeof(struct thread_data));
 
-    if (data == NULL)
-    {
-        ERROR_LOG("Could not allocate memory for data\n");
-	return false;
+    struct thread_data* thread_param = (struct thread_data *) malloc(sizeof(struct thread_data));
+
+    if(thread_param!=NULL){
+
+            thread_param->thread = thread;
+            thread_param->mutex = mutex;
+            thread_param->wait_to_obtain_ms = wait_to_obtain_ms;
+            thread_param->wait_to_release_ms = wait_to_release_ms;
+
+            pthread_t t;
+            int ret = pthread_create( &t, NULL, threadfunc, thread_param);
+            if(ret==0){
+                DEBUG_LOG("Thread created successfully\n");
+                return true;
+            }
+            else{
+                ERROR_LOG("pthread_create failed with return=%d\n", ret);
+            }
+
     }
 
-    data->obtain_time_ms = wait_to_obtain_ms;
-    data->release_time_ms = wait_to_release_ms;
-    data->mutex = mutex;
-    data->thread_complete_success = false;
+    DEBUG_LOG("malloc failed\n");
 
-    int rc = pthread_create(thread, NULL, threadfunc, data);
-
-    if (rc != 0)
-    {
-        ERROR_LOG("Could not start new thread\n");
-        return false;
-    }
-
-    return true;
+    return false;
 }
 

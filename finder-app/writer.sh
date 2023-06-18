@@ -1,19 +1,27 @@
-#!/bin/bash
+#!/bin/sh
 
-if [ $# -ne 2 ]; then
-	echo "Please enter a write directory followed by a string as arguements"
+if [ $# -eq 2 ]
+then
+	writefile=$1
+	writestr=$2
+elif [ $# -eq 1 ]
+then
+	printf "writestr not entered\n"
+	exit 1
+elif [ $# -eq 0 ]
+then
+	printf "writefile and writestr not entered\n"
 	exit 1
 fi
+	
+dir=$(dirname "$writefile")
+mkdir -p $dir
+echo $writestr > $writefile
 
-WRITEFILE=$1
-WRITESTR=$2
-
-mkdir -p "$(dirname "$WRITEFILE")"
-
-echo "$WRITESTR" > "$WRITEFILE"
-
-if [ ! -f "$WRITEFILE" ]; then
-	echo "Failed to create file $WRITEFILE"
-	exit 1
+if [ $? -eq 1 ]
+then
+	printf "File not created\n"
+	exit 1	
 fi
+
 

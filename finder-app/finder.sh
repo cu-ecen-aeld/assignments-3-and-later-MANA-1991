@@ -1,20 +1,27 @@
 #!/bin/sh
 
-if [ $# -ne 2 ]; then
-	echo "Please enter a file directory followed by a search string as arguements"
+if [ $# -eq 2 ]
+then
+	filesdir=$1
+	searchstr=$2
+elif [ $# -eq 1 ]
+then
+	printf "searchstr not entered\n"
+	exit 1
+elif [ $# -eq 0 ]
+then
+	printf "filesdir and searchstr not entered\n"
 	exit 1
 fi
 
-FILESDIR=$1
-SEARCHSTR=$2
-
-if [ ! -d "$FILESDIR" ]; then
-	echo "$FILESDIR is not a directory"
+if [ -d $filesdir ]
+then
+	x=$(find "$filesdir" -type f|wc -l)
+	y=$(grep "$searchstr" $(find "$filesdir" -type f)|wc -l)
+else
+	printf "Invalid filesdir\n"
 	exit 1
 fi
 
-NUM_FILES=$(find "$FILESDIR" -type f | wc -l)
+printf "The number of files are $x and the number of matching lines are $y\n"
 
-NUM_MATCHES=$(grep -r "$SEARCHSTR" "$FILESDIR" | wc -l)
-
-echo "The number of files are $NUM_FILES and the number of matching lines are $NUM_MATCHES"

@@ -1,4 +1,11 @@
 #include "systemcalls.h"
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,19 +23,12 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+
     int ret = system(cmd);
-    if (ret == -1)
-    {
-	return false;
-    }
+    if(ret!=0)
+	    return false;
 
-    if (WIFEXITED(ret))
-    {
-	return (WEXITSTATUS(ret) == EXIT_SUCCESS);
-    }
-
-    printf("The command could not be completed. Error code: %d\n", ret);
-    return false;
+    return true;
 }
 
 /**
@@ -56,6 +56,9 @@ bool do_exec(int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
+    // this line is to avoid a compile warning before your implementation is complete
+    // and may be removed
+    //command[count] = command[count];
 
 /*
  * TODO:
@@ -66,48 +69,32 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-    if (command[0] == NULL) {
-        return false;
-    }
-
-    int status;
-    int ret;
-    pid_t pid;
-
-    pid = fork();
-
-    if (pid == -1)
-    {
-        perror("fork");
-        return false;
-    }
-    else if (pid == 0)
-    {
-        ret = execv(command[0], command);
-        if (ret == -1)
-        {
-            perror("execv");
-        }
-        exit(EXIT_FAILURE);
-    }
-
-    if (waitpid(pid, &status, 0) == -1)
-    {
-        ret = -1;
-    }
-    else if (WIFEXITED(status))
-    {
-        ret = WEXITSTATUS(status);
-    }
 
     va_end(args);
 
-    if (ret == 0)
-    {
-        return true;
+    int retFork=fork();
+    if(retFork==-1){
+	    return false;
+    }
+    if(retFork==0){
+    //In child process
+	int ret=execv( command[0], command);
+	exit(ret);
+    }
+    else{
+    //In parent process
+	    int status;
+	    wait(&status);
+	    if(WIFEXITED(status)){
+		    if(WEXITSTATUS(status)==0){
+			    return true;
+		    }
+	    }
+	    
+	    return false;
     }
 
-    return false;
+
 }
 
 /**
@@ -126,6 +113,10 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
+    // this line is to avoid a compile warning before your implementation is complete
+    // and may be removed
+    //command[count] = command[count];
+
 
 /*
  * TODO
@@ -134,60 +125,45 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
-    
-    int kidpid;
-    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT,0644);
-    int ret;
-    int status;
-
-    if (fd < 0)
-    {
-        perror("open");
-	return false;
-    }
-
-    switch (kidpid = fork())
-    {
-        case -1:
-	{
-	    perror("fork");
-	    return false;
-	}
-	case 0:
-	{
-	    if(dup2(fd, 1) < 0) 
-	    { 
-	        perror("dup2"); 
-	        ret = -1;
-	    }
-	    close(fd);
-	    ret = execv(command[0], command); 
-	    if (ret == -1)
-	    {
-	        perror("execvp"); 
-	        ret = -1;
-	    }
-	}
-	default: 
-	    close(fd);
-    }
-
-    if (waitpid(kidpid, &status, 0) == -1)
-    {
-        ret = -1;
-    }
-
-    if (WIFEXITED(status))
-    {
-        ret = WEXITSTATUS(status);
-    }
 
     va_end(args);
 
-    if (ret == 0)
-    {
-        return true;
+
+    int fd=open( outputfile, O_CREAT|O_WRONLY|O_TRUNC,0666);
+    if(fd<0){
+	return false;
     }
 
-    return false;
+    int retFlush=fflush(stdout);
+    if(retFlush==EOF){
+	close(fd);
+	return false;
+    }
+    int retFork=fork();
+    if(retFork==-1){
+	    close(fd);
+	    return false;
+    }
+    if(retFork==0){
+    //In child process
+        int retDup=dup2( fd, 1);
+	if(retDup!=-1){
+		int ret=execv( command[0], command);
+		exit(ret);
+	}
+	exit(1);
+    }
+    else{
+    //In parent process
+	    int status;
+	    wait(&status);
+	    if(WIFEXITED(status)){
+		    if(WEXITSTATUS(status)==0){
+			    return true;
+		    }
+	    }
+	    
+	    return false;
+    }
+
 }
