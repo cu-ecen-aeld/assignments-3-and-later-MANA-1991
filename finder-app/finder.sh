@@ -1,27 +1,30 @@
 #!/bin/sh
 
-if [ $# -eq 2 ]
-then
-	filesdir=$1
-	searchstr=$2
-elif [ $# -eq 1 ]
-then
-	printf "searchstr not entered\n"
-	exit 1
-elif [ $# -eq 0 ]
-then
-	printf "filesdir and searchstr not entered\n"
-	exit 1
+# $1(=filesdir): path to a directory on the filesystem
+# $2(=searchstr): text string which will be searched within these files
+# Exits with return value 1 error and print statements if any of
+# the parameters above were not specified
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 filesdir searchstr"
+    exit 1
 fi
 
-if [ -d $filesdir ]
-then
-	x=$(find "$filesdir" -type f|wc -l)
-	y=$(grep "$searchstr" $(find "$filesdir" -type f)|wc -l)
-else
-	printf "Invalid filesdir\n"
-	exit 1
+# Exits with return value 1 error and print statements if filesdir
+# does not represent a directory on the filesystem
+if [ ! -d "$1" ]; then
+    echo "$1 is not a directory"
+    exit 1
 fi
 
-printf "The number of files are $x and the number of matching lines are $y\n"
+# Prints a message
+# "The number of files are X and the number of matching lines are Y"
+# where X is the number of files in the directory and all subdirectories
+# and Y is the number of matching lines found in respective files, where
+# a matching line refers to a line which contains searchstr (and may also
+# contain additional content).
+# Search for matching lines and count the results
+numOfMatchingFiles=$(find "$1" -type f | wc -l)
+numOfMatchingLines=$(grep -r "$2" "$1" | wc -l)
 
+# Print the results
+echo "The number of files are $numOfMatchingFiles and the number of matching lines are $numOfMatchingLines"

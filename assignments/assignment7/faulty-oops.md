@@ -1,50 +1,42 @@
-# Analysis of faulty-oops
+# faulty-oops
 
-## Description
+## Validation
 
+You should be able to clone your final buildroot assignment repository to a new directory, run ./build.sh to build the system image and ./runqemu.sh to start the image with no other interaction necessary.
+
+#### a. The image should include printk logs in /var/log/messages including your github user name from the hello module which is loaded automatically during startup.
+
+![a](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/ccc6023a-d203-4f33-a603-89d540525cc5)
+
+#### b. You should should have /dev/scull devices in the /dev directory as well as /dev/faulty
+
+![b](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/33d64d42-e211-442b-8cef-44c28c854b79)
+
+#### c. Modules hello, faulty and scull should all be listed in lsmod after startup.
+
+![c](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/faa29f9f-314e-442e-8d73-9a037845f127)
+
+#### d. Running /etc/init.d/S98lddmodules stop should unload all modules on the buildroot instance.
+
+![d](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/894fb045-51ee-4417-8eae-b5a6c77fe6aa)
+
+#### e. Your analysis in your assignment 3 repository within assignments/assignment7/faulty-oops.md should explain the content and how you can use this to locate the faulty line in the kernel driver.
+
+![e](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/faaa918b-0889-43b5-9424-e9bfa13ad260)
+
+1. It is Null pointer exception.
 ```
-
-Any address used by the processor is a virtual address and is mapped to physical addresses through a complex structure of page tables (the exceptions are physical addresses used with the memory management subsystem itself). 
-When an invalid pointer is dereferenced, the paging mechanism fails to map the pointer to a physical address, and the processor signals a page fault to the operating system. 
-If the address is not valid, the kernel is not able to “page in” the missing address; it (usually) generates an oops if this happens while the processor is in supervisor mode.
-```
-
-## Sample faulty-oops message
-
-```
-
-Run command in qemu to generate the below message : echo “hello_world” > /dev/faulty
-
 Unable to handle kernel NULL pointer dereference at virtual address 0000000000000000
-Mem abort info:
-  ESR = 0x96000045
-  EC = 0x25: DABT (current EL), IL = 32 bits
-  SET = 0, FnV = 0
-  EA = 0, S1PTW = 0
-  FSC = 0x05: level 1 translation fault
-Data abort info:
-  ISV = 0, ISS = 0x00000045
-  CM = 0, WnR = 1
-user pgtable: 4k pages, 39-bit VAs, pgdp=00000000420a9000
-[0000000000000000] pgd=0000000000000000, p4d=0000000000000000, pud=0000000000000000
-Internal error: Oops: 96000045 [#1] SMP
-Modules linked in: hello(O) faulty(O) scull(O)
-CPU: 0 PID: 161 Comm: sh Tainted: G           O      5.15.18 #1
-Hardware name: linux,dummy-virt (DT)
-pstate: 80000005 (Nzcv daif -PAN -UAO -TCO -DIT -SSBS BTYPE=--)
+```
+
+2. Locate the position where throws exception.
+We can find the location from pc register
+```assembly
 pc : faulty_write+0x14/0x20 [faulty]
-lr : vfs_write+0xa8/0x2b0
-sp : ffffffc008d03d80
-x29: ffffffc008d03d80 x28: ffffff80020e0000 x27: 0000000000000000
-x26: 0000000000000000 x25: 0000000000000000 x24: 0000000000000000
-x23: 0000000020001000 x22: 0000000000000012 x21: 0000005590c42a70
-x20: 0000005590c42a70 x19: ffffff80020f5500 x18: 0000000000000000
-x17: 0000000000000000 x16: 0000000000000000 x15: 0000000000000000
-x14: 0000000000000000 x13: 0000000000000000 x12: 0000000000000000
-x11: 0000000000000000 x10: 0000000000000000 x9 : 0000000000000000
-x8 : 0000000000000000 x7 : 0000000000000000 x6 : 0000000000000000
-x5 : 0000000000000001 x4 : ffffffc0006f7000 x3 : ffffffc008d03df0
-x2 : 0000000000000012 x1 : 0000000000000000 x0 : 0000000000000000
+```
+
+or from call stack.
+```assembly
 Call trace:
  faulty_write+0x14/0x20 [faulty]
  ksys_write+0x68/0x100
@@ -55,45 +47,15 @@ Call trace:
  el0_svc+0x20/0x60
  el0t_64_sync_handler+0xe8/0xf0
  el0t_64_sync+0x1a0/0x1a4
-Code: d2800001 d2800000 d503233f d50323bf (b900003f) 
----[ end trace a5863f4929eff37f ]---
 ```
 
-## Debugging kernel object
+3. See the assembly code using objdump
 
+![f](https://github.com/cu-ecen-aeld/assignments-3-and-later-hogimn/assets/110673139/737f12ac-6350-453a-b65a-17435b83cd44)
+
+```assembly
+14:	b900003f 	str	wzr, [x1]
 ```
 
-We can locate faulty.ko in path buildroot/output/target/lib/modules/5.15.18/extra 
-Use command : aarch64-none-linux-gnu-objdump -d faulty.ko
-
-faulty.ko:     file format elf64-littleaarch64
-
-
-Disassembly of section .text:
-
-0000000000000000 <faulty_write>:
-   0:	d503245f 	bti	c
-   4:	d2800001 	mov	x1, #0x0                   	// #0
-   8:	d2800000 	mov	x0, #0x0                   	// #0
-   c:	d503233f 	paciasp
-  10:	d50323bf 	autiasp
-  14:	b900003f 	str	wzr, [x1]
-  18:	d65f03c0 	ret
-  1c:	d503201f 	nop
-```
-
-## Notes
-
-```
-
->We can see from qemu messages virtual address=0000000000000000 and we see 0000000000000000 <faulty_write> in objdump output.
->We can see faulty_write+0x14/0x20 [faulty] in call trace and Code: d2800001 d2800000 d503233f d50323bf (b900003f) in qemu messages, equivalent instructions we can see in objdump output as below,
-   4:   d2800001        mov     x1, #0x0                        // #0
-   8:   d2800000        mov     x0, #0x0                        // #0
-   c:   d503233f        paciasp
-  10:   d50323bf        autiasp
-  14:   b900003f        str     wzr, [x1]
->Here 'str' is store instruction 'wzr' is zero-register '[x1]' is address which is set to 0 in code, due to which oops message was generated.
-```
-
+This line is the cause of the crash.
 

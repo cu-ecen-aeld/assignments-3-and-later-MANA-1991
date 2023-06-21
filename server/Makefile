@@ -1,27 +1,12 @@
+# Use ?= to preserves any previous value of CC
+CC ?= $(CROSS_COMPILE)gcc
+LDFLAGS ?= -lpthread
 
-APP ?= aesdsocket
-CFLAGS ?= -Wall -Werror -g -O0
-LDFLAGS ?= -lpthread -lrt
-CFILE ?= $(APP).c
-OBJECTS ?= $(APP).o
-BINARY ?= $(APP)
+all: aesdsocket
+default: aesdsocket
 
-ifdef CROSS_COMPILE
-	CC ?= $(CROSS_COMPILE)gcc
-else
-	CC ?= gcc
-endif
+aesdsocket:
+	$(CC) -o aesdsocket aesdsocket.c $(LDFLAGS)
 
-default : $(BINARY)
-
-all : $(BINARY)
-
-$(BINARY) : $(OBJECTS)
-	$(CC) $^ -o $@ $(LDFLAGS)
-
-%.o:%.c
-	$(CC) $(CFLAGS) -c $^ -o $@
-
-clean : 
-	rm -rf $(BINARY) $(OBJECTS)
-
+clean :
+	rm -f aesdsocket
